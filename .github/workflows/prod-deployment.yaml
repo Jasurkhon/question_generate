@@ -13,7 +13,7 @@ jobs:
     # docker build . --file Dockerfile --tag dellicon/sharpistai:latest
       run: |
           echo "${GITHUB_SHA:0:7}" > TAG
-          docker build . --file Dockerfile --tag dellicon/sharpistai:$(cat TAG)
+          docker build . --file Dockerfile --tag dellicon/sharpistai:latest
 
     - name: Docker Login
       # run: docker login dellicon -u ${{ vars.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
@@ -21,5 +21,5 @@ jobs:
       # For the above command, you need to create a secret in the repository settings with the name DOCKER_PASSWORD and the value as your Docker Hub password.
     
     - name: Docker Push
-      run: docker push dellicon/sharpistai:$(cat TAG)
+      run: docker push dellicon/sharpistai:latest
   
