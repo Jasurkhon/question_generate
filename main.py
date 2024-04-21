@@ -100,31 +100,23 @@ def parse_short_answer_questions(short_answer_questions):
     questions = []
     temp_question = {}
 
-    # Iterate through the list of question strings
     for entry in short_answer_questions:
-        if re.match(r'^\d+\.', entry):  # Checks if the line starts with a question number
-            # If there's a temporary question stored and it has an answer, append to questions
+        if re.match(r'^\d+\.', entry):  
             if temp_question.get('question') and temp_question.get('answer'):
                 questions.append(temp_question)
                 temp_question = {}
 
-            # Find the index of the first period which ends the question number
             first_dot_index = entry.find('.')
-            # Extract question text potentially without the answer
             question_text = entry[first_dot_index + 1:].strip()
             temp_question['question'] = question_text
-            # Check if it also contains an answer in the same line
             if "(correct answer:" in question_text:
-                # Split the question from the answer
                 split_text = question_text.split("(correct answer:")
                 temp_question['question'] = split_text[0].strip()
                 temp_question['answer'] = split_text[1].strip(')').strip()
         elif re.match(r'^(Correct answer:|correct answer:)', entry):
-            # Extract the answer and store it in the temporary question dictionary
             answer_text = entry.split(':', 1)[1].strip()
             temp_question['answer'] = answer_text
 
-    # After the loop, add the last question if it hasn't been added yet
     if temp_question.get('question') and temp_question.get('answer'):
         questions.append(temp_question)
 
