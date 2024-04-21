@@ -24,7 +24,17 @@ def generate_questions(text, question_type, question_count, question_difficulty)
         max_tokens=400,
         messages=[
             {"role": "system",
-             "content": 'You are questionnaire generator, and you need to generate questionnaire based on question type with correct answer. Each time you need to generate different questions since different users will use this program. Always include answers with questions. When you generate true false questions remove  True or False: from the begining instead put question and add correct answer in brackets like True or False'},
+             "content": 
+            '''You are questionnaire generator, and you need to generate questionnaire based on question type with correct answer. Each time you need to generate different questions since different users will use this program. Always include answers with questions. When you generate true false questions remove  True or False: from the begining instead put question and add correct answer in brackets like True or False. When you generate multiple case type question you need to generate questions always in this form:
+             
+            1. What did Elon Musk say about Tesla and Bitcoin?
+            a) Tesla will not accept payments in Bitcoin because of environmental concerns.
+            b) Tesla will start accepting payments in Bitcoin from now on.
+            c) Tesla will accept payments in Bitcoin, but only on weekends.
+            Answer: a.
+
+            When you generate short answer type questions include correct answer like correct answer: 
+            and correct answer shoud be no more than 3 wods'''}, 
             {"role": "user", "content": prompt}
         ]
     )
@@ -32,7 +42,7 @@ def generate_questions(text, question_type, question_count, question_difficulty)
     generated_questions = response.choices[0].message.content.strip().split("\n")
     print(generated_questions)
     test_list = [i for i in generated_questions if i]
-    print(test_list)
+    # print(test_list)
     return test_list
 
 
@@ -88,22 +98,39 @@ def parse_true_false_questions(true_false_questions):
 
 def parse_short_answer_questions(short_answer_questions):
     questions = []
+    temp_question = {}
 
-    for question in short_answer_questions:
-        question_parts = question.split('. ', 1)
-        if len(question_parts) == 2:
-            question_number, question_text = question_parts
-        else:
-            question_number, question_text = '', question_parts[0]
+    # Iterate through the list of question strings
+    for entry in short_answer_questions:
+        if re.match(r'^\d+\.', entry):  # Checks if the line starts with a question number
+            # If there's a temporary question stored and it has an answer, append to questions
+            if temp_question.get('question') and temp_question.get('answer'):
+                questions.append(temp_question)
+                temp_question = {}
 
-        question = {
-            'question': question_text,
-            'answer': None  # Placeholder for the answer
-        }
+            # Find the index of the first period which ends the question number
+            first_dot_index = entry.find('.')
+            # Extract question text potentially without the answer
+            question_text = entry[first_dot_index + 1:].strip()
+            temp_question['question'] = question_text
+            # Check if it also contains an answer in the same line
+            if "(correct answer:" in question_text:
+                # Split the question from the answer
+                split_text = question_text.split("(correct answer:")
+                temp_question['question'] = split_text[0].strip()
+                temp_question['answer'] = split_text[1].strip(')').strip()
+        elif re.match(r'^(Correct answer:|correct answer:)', entry):
+            # Extract the answer and store it in the temporary question dictionary
+            answer_text = entry.split(':', 1)[1].strip()
+            temp_question['answer'] = answer_text
 
-        questions.append(question)
+    # After the loop, add the last question if it hasn't been added yet
+    if temp_question.get('question') and temp_question.get('answer'):
+        questions.append(temp_question)
 
     return questions
+
+
 
 
 
