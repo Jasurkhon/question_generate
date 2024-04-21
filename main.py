@@ -143,8 +143,7 @@ async def generate_api_questions(text: str, question_type: str, question_count: 
         parsed_questions = parse_short_answer_questions(generated_questions)
         format_value = 3
 
-        
-
-    response_data = {"questions": parsed_questions, "format": format_value}
+    # Added question type as well as format value in response
+    response_data = {"questions": parsed_questions, "format": format_value, "question_type": question_type}
 
     return JSONResponse(content=jsonable_encoder(response_data))
