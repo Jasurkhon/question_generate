@@ -18,7 +18,7 @@ jobs:
 
     - name: Docker Login
       # run: docker login dellicon -u ${{ vars.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
-      run: docker login dellicon -u dellicon -p dckr_pat_1bnUqwkI6wKnzPpbtEUZkx1IsQs
+      run: docker login -u dellicon -p dckr_pat_1bnUqwkI6wKnzPpbtEUZkx1IsQs
       # For the above command, you need to create a secret in the repository settings with the name DOCKER_PASSWORD and the value as your Docker Hub password.
     
     - name: Docker Push
