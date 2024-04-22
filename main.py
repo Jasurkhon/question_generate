@@ -5,6 +5,8 @@ from fastapi.encoders import jsonable_encoder
 from openai import AzureOpenAI
 import re, logging, sys, requests, json, time
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import List
 
 app = FastAPI()
 
@@ -233,15 +235,21 @@ def list_synthesis_jobs(skip: int = 0, top: int = 100):
     else:
         logger.error(f'Failed to list batch synthesis jobs: {response.text}')
   
+
+class QuestionAnswer(BaseModel):
+    Question: str
+    GivenAnswer: str
+    CorrectAnswer: str
+    
 @app.post("/gen_url/")
-async def generate_api_questions(questions_answers: str):
+async def generate_api_questions(questions_answers: List[QuestionAnswer]):
     response = client.chat.completions.create(
         model=DEPLOYMENT_NAME,
         temperature=0.7,
         max_tokens=400,
         messages=[
             {"role": "system", "content": 'You are an assistant, that checks answers and based on wrong ones generates educating texts on easy to understand language. Not longer than 5 sentences.'},
-            {"role": "user", "content": questions_answers} #Replace the hard-coded text with your prompt, containing wrong answers and task to explain correct solutions on easy to understand language
+            {"role": "user", "content": str(questions_answers)} #Replace the hard-coded text with your prompt, containing wrong answers and task to explain correct solutions on easy to understand language
         ])
 
     gptresponse = response.choices[0].message.content
@@ -254,7 +262,7 @@ async def generate_api_questions(questions_answers: str):
             status = response['status']
             if status == 'Succeeded':
                 logger.info('batch avatar synthesis job succeeded')
-                url = response.json()["outputs"]["result"]
+                url = response["outputs"]["result"]
                 response_data = {"url": url}
                 
                 return JSONResponse(content=jsonable_encoder(response_data))
