@@ -5,9 +5,17 @@ from fastapi.encoders import jsonable_encoder
 from openai import AzureOpenAI
 import re
 import json
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["*"],
+)
 client = AzureOpenAI(
     api_key="5b0048ed2ba744b88eeee69c01adcc17",
     api_version="2024-02-01",
