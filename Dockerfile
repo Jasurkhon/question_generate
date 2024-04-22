@@ -11,4 +11,4 @@ EXPOSE 80
 
 ENV PYTHONUNBUFFERED=1
 
-CMD ["python3", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80", "--reload", "--timeout-keep-alive", "60"]
+CMD ["python3", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80", "--reload", "--timeout-keep-alive", "120"]
