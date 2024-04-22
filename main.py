@@ -3,11 +3,14 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 from openai import AzureOpenAI
-import re
-import json
+import re, logging, sys, requests, json, time
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+logging.basicConfig(stream=sys.stdout, level=logging.INFO,
+        format="[%(asctime)s] %(message)s", datefmt="%m/%d/%Y %I:%M:%S %p %Z")
+logger = logging.getLogger(__name__)
 
 app.add_middleware(
     CORSMiddleware,
@@ -155,3 +158,110 @@ async def generate_api_questions(text: str, question_type: str, question_count: 
     response_data = {"questions": parsed_questions, "format": format_value, "question_type": question_type}
 
     return JSONResponse(content=jsonable_encoder(response_data))
+
+DEPLOYMENT_NAME='gpt-35-turbo'
+SUBSCRIPTION_KEY = 'a43a4bc9c9b246be92c268e4d9e90ada'
+SERVICE_REGION = "westeurope"
+NAME = "Simple avatar synthesis"
+DESCRIPTION = "Simple avatar synthesis description"
+SERVICE_HOST = "customvoice.api.speech.microsoft.com"
+
+
+def submit_synthesis(gptresponse):
+    url = f'https://{SERVICE_REGION}.{SERVICE_HOST}/api/texttospeech/3.1-preview1/batchsynthesis/talkingavatar'
+    header = {
+        'Ocp-Apim-Subscription-Key': SUBSCRIPTION_KEY,
+        'Content-Type': 'application/json'
+    }
+
+    payload = {
+        'displayName': NAME,
+        'description': DESCRIPTION,
+        "textType": "PlainText",
+        'synthesisConfig': {
+            "voice": "en-US-JennyNeural",
+        },
+        'customVoices': {
+        },
+        "inputs": [
+            {
+                "text": gptresponse,
+            },
+        ],
+        "properties": {
+            "customized": False,
+            "talkingAvatarCharacter": "lisa",
+            "talkingAvatarStyle": "graceful-sitting",
+            "videoFormat": "webm",
+            "videoCodec": "vp9",
+            "subtitleType": "soft_embedded",
+            "backgroundColor": "transparent",
+        }
+    }
+
+    response = requests.post(url, json.dumps(payload), headers=header)
+    if response.status_code < 400:
+        logger.info('Batch avatar synthesis job submitted successfully')
+        logger.info(f'Job ID: {response.json()["id"]}')
+        return response.json()["id"]
+    else:
+        logger.error(f'Failed to submit batch avatar synthesis job: {response.text}')
+
+def get_synthesis(job_id):
+    url = f'https://{SERVICE_REGION}.{SERVICE_HOST}/api/texttospeech/3.1-preview1/batchsynthesis/talkingavatar/{job_id}'
+    header = {
+        'Ocp-Apim-Subscription-Key': SUBSCRIPTION_KEY
+    }
+    response = requests.get(url, headers=header)
+    if response.status_code < 400:
+        logger.debug('Get batch synthesis job successfully')
+        logger.debug(response.json())
+        return response.json()
+    else:
+        logger.error(f'Failed to get batch synthesis job: {response.text}')
+  
+def list_synthesis_jobs(skip: int = 0, top: int = 100):
+    """List all batch synthesis jobs in the subscription"""
+    url = f'https://{SERVICE_REGION}.{SERVICE_HOST}/api/texttospeech/3.1-preview1/batchsynthesis/talkingavatar?skip={skip}&top={top}'
+    header = {
+        'Ocp-Apim-Subscription-Key': SUBSCRIPTION_KEY
+    }
+    response = requests.get(url, headers=header)
+    if response.status_code < 400:
+        logger.info(f'List batch synthesis jobs successfully, got {len(response.json()["values"])} jobs')
+        logger.info(response.json())
+    else:
+        logger.error(f'Failed to list batch synthesis jobs: {response.text}')
+  
+@app.post("/gen_url/")
+async def generate_api_questions(questions_answers: str):
+    response = client.chat.completions.create(
+        model=DEPLOYMENT_NAME,
+        temperature=0.7,
+        max_tokens=400,
+        messages=[
+            {"role": "system", "content": 'You are an assistant, that checks answers and based on wrong ones generates educating texts on easy to understand language. Not longer than 5 sentences.'},
+            {"role": "user", "content": questions_answers} #Replace the hard-coded text with your prompt, containing wrong answers and task to explain correct solutions on easy to understand language
+        ])
+
+    gptresponse = response.choices[0].message.content
+    logger.info("Response: " + gptresponse + "\n")
+
+    job_id = submit_synthesis(gptresponse)
+    if job_id is not None:
+        while True:
+            response = get_synthesis(job_id)
+            status = response['status']
+            if status == 'Succeeded':
+                logger.info('batch avatar synthesis job succeeded')
+                url = response.json()["outputs"]["result"]
+                response_data = {"url": url}
+                
+                return JSONResponse(content=jsonable_encoder(response_data))
+            elif status == 'Failed':
+                logger.error('batch avatar synthesis job failed')
+                raise HTTPException(status_code=500, detail="batch avatar synthesis job failed")
+            else:
+                logger.info(f'batch avatar synthesis job is still running, status [{status}]')
+                time.sleep(5)
+        
